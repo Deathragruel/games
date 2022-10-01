@@ -5,51 +5,58 @@ class PongBoard():
     """ Simple class for the moving pong boards. """
     def __init__(self, rect_dimensions):
         self.rect = pygame.Rect(rect_dimensions)
-        self.speed = 10 
+        self.velocity = 10 
         self.moving_up = False
         self.moving_down = False
     def draw(self):
         pygame.draw.rect(screen, (255, 255, 255), self.rect, width=3)
     def update(self):
         if self.moving_up:
-            self.rect.y -= self.speed
+            self.rect.y -= self.velocity
         if self.moving_down:
-            self.rect.y += self.speed
+            self.rect.y += self.velocity
         if self.rect.top <= 15:
             self.rect.top = 15
         if self.rect.bottom >= 585:
             self.rect.bottom = 585
-class Ball(pygame.sprite.Sprite):
-    def __init__(self):
-        super().__init__()
-        self.rect = pygame.Rect(498, 292, 15, 15)
-        self.x_direction = 1
-        self.y_direction = 1
-        self.speed = 5
-    def draw(self, b, ball):
+class Ball():
+    def __init__(self, startdir):
+        self.rect_dimensions = (498, 292, 15, 15)
+        self.rect = pygame.Rect(self.rect_dimensions)
+        # The startdir is for changing the direction according to score
+        # but the normalize is used to change direction of vector while keeping magnitude 1
+        self.direction = pygame.math.Vector2(startdir).normalize()
+        self.velocity = 8
+    def draw(self):
         pygame.draw.rect(screen, 'Red', self.rect)
         if self.rect.right <= 0:
-            reset(b, ball)
+            self.rect = pygame.Rect(self.rect_dimensions)
         elif self.rect.left >= 1000:
-            reset(b, ball)
+            self.rect = pygame.Rect(self.rect_dimensions)
     def update(self):
-        self.rect.x -= self.speed * self.x_direction
-        self.rect.y -= self.speed * self.y_direction
+        self.rect.x -= self.velocity * self.direction.x
+        self.rect.y -= self.velocity * self.direction.y
+
 
 def check_collisions(pb_1, pb_2, border_1, border_2, ball):
-    # last_touched indicates by which pong board the ball last bounced off off.
-    if pygame.Rect.colliderect(pb_1.rect, ball.sprite.rect):
-        ball.sprite.x_direction *= -1
-    if pygame.Rect.colliderect(pb_2.rect, ball.sprite.rect):
-        ball.sprite.x_direction *= -1
-    if pygame.Rect.colliderect(border_1, ball.sprite.rect):
-        ball.sprite.y_direction *= -1
-    if pygame.Rect.colliderect(border_2, ball.sprite.rect):
-        ball.sprite.y_direction *= -1
-
-def reset(b, ball):
-    b = Ball()
-    b.add(ball)
+    # The parameter of reflect is the normal vector for reflection
+    br = ball.rect
+    pb = pb_1
+    list_1 = [(x, pb.rect.bottom - 1) for x in range(100, 120)]
+    list_2 = [(119, y) for y in range(pb.rect.top, pb.rect.bottom)]
+    list_3 = [(x, pb.rect.top + 1) for x in range(100, 120)]
+    if pygame.Rect.colliderect(pb_1.rect, br):
+        ball.direction = ball.direction.reflect((1, 0))
+        # Do the conditionals with the lists
+    if pygame.Rect.colliderect(pb_2.rect, br):
+        pb = pb_2
+        ball.direction = ball.direction.reflect((1, 0))
+    if pygame.Rect.colliderect(border_1, br) or pygame.Rect.colliderect(border_2, br):
+        ball.direction = ball.direction.reflect((0, 1))
+        if ball.rect.y < border_1.bottom and not 1000 <= ball.rect.x <= 0:
+            ball.rect.y = border_1.bottom
+        elif ball.rect.y > border_2.top and not 1000 <= ball.rect.x <= 0:
+            ball.rect.y = border_2.top
 
 # Basic setup
 pygame.init()
@@ -62,9 +69,7 @@ pb_1 = PongBoard((100, 25, 20, 80))
 pb_2 = PongBoard((900, 495, 20, 80))
 border_1 = pygame.Rect(0, 5, 1000, 10)
 border_2 = pygame.Rect(0, 585, 1000, 10)
-b = Ball()
-ball = pygame.sprite.GroupSingle()
-b.add(ball)
+ball = Ball(-1)
 
 # For scores
 score_1 = 0
@@ -105,9 +110,9 @@ while True:
                 pb_2.moving_down = False
  
     # For displaying the scores
-    if ball.sprite.rect.right <= 0:
+    if ball.rect.right <= 0:
         score_1 += 1
-    elif ball.sprite.rect.left >= 1000:
+    elif ball.rect.left >= 1000:
         score_2 += 1
 
     display_score(str(score_1), (450, 50, 30, 50))
@@ -119,7 +124,7 @@ while True:
     pygame.draw.rect(screen, (255, 255, 255), border_2, width=1)
     pb_1.draw()
     pb_2.draw()
-    ball.sprite.draw(b, ball)
+    ball.draw()
     
     # collisions
     check_collisions(pb_1, pb_2, border_1, border_2, ball)
